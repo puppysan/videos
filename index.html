@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VideoHub — Videos de la comunidad</title>
+<style>
+  :root{
+    --bg:#0f0f0f;
+    --surface:#1c1c1c;
+    --surface-2:#272727;
+    --text:#f1f1f1;
+    --muted:#aaaaaa;
+    --accent:#ff0033;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button,input{font-family:inherit}
+
+  /* ---------- Header ---------- */
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; gap:14px;
+    padding:12px 20px;
+    background:rgba(15,15,15,.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid #222;
+  }
+  .logo{
+    display:flex; align-items:center; gap:8px;
+    font-weight:800; font-size:1.15rem; letter-spacing:-.5px;
+    white-space:nowrap; user-select:none;
+  }
+  .logo .dot{
+    width:26px;height:26px;border-radius:8px;
+    background:var(--accent);
+    display:grid;place-items:center;font-size:.8rem;color:#fff;
+  }
+  .search{flex:1; max-width:520px; margin:0 auto}
+  .search input{
+    width:100%; padding:10px 16px;
+    border-radius:999px; border:1px solid #333;
+    background:#121212; color:var(--text);
+    font-size:.95rem; outline:none; transition:border-color .15s;
+  }
+  .search input:focus{border-color:#555}
+  .search input::placeholder{color:#777}
+
+  .btn{
+    border:0; border-radius:999px;
+    padding:10px 18px; font-size:.9rem; font-weight:600;
+    cursor:pointer; background:var(--surface-2); color:var(--text);
+    white-space:nowrap; transition:background .15s, transform .1s;
+  }
+  .btn:hover{background:#3a3a3a}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:var(--accent); color:#fff}
+  .btn-primary:hover{background:#d10029}
+
+  /* ---------- Layout ---------- */
+  main{padding:24px 20px 80px; max-width:1700px; margin:0 auto}
+  .status{
+    color:var(--muted); font-size:.9rem; margin:0 0 18px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .status b{color:var(--text)}
+
+  .grid{
+    display:grid; gap:22px 16px;
+    grid-template-columns:repeat(auto-fill,minmax(265px,1fr));
+  }
+
+  /* ---------- Card ---------- */
+  .card{
+    all:unset;
+    display:flex; flex-direction:column; gap:10px;
+    cursor:pointer; border-radius:var(--radius);
+    transition:transform .15s;
+  }
+  .card:hover{transform:translateY(-2px)}
+  .card:focus-visible{outline:2px solid var(--accent); outline-offset:4px}
+
+  .thumb{
+    position:relative; aspect-ratio:16/9;
+    border-radius:var(--radius); overflow:hidden;
+    background:var(--surface-2);
+  }
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block}
+  .thumb .fallback{
+    width:100%; height:100%;
+    display:grid; place-items:center;
+    font-size:2rem; color:#666;
+    background:linear-gradient(135deg,#1e1e1e,#2e2e2e);
+  }
+  .thumb::after{
+    content:""; position:absolute; inset:0;
+    background:rgba(0,0,0,.25); opacity:0; transition:opacity .15s;
+  }
+  .card:hover .thumb::after{opacity:1}
+  .play{
+    position:absolute; inset:0; margin:auto;
+    width:52px; height:52px; border-radius:50%;
+    background:rgba(0,0,0,.72);
+    display:grid; place-items:center;
+    opacity:0; transition:opacity .15s; pointer-events:none;
+  }
+  .card:hover .play{opacity:1}
+  .play svg{width:22px;height:22px;fill:#fff;margin-left:3px}
+
+  .tag{
+    position:absolute; top:8px; left:8px;
+    background:rgba(0,0,0,.8); color:#fff;
+    font-size:.7rem; font-weight:600; text-transform:uppercase;
+    padding:3px 7px; border-radius:6px; letter-spacing:.4px;
+  }
+
+  .card h3{
+    margin:0; font-size:.95rem; font-weight:600; line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .meta{
+    display:flex; align-items:center; gap:8px;
+    font-size:.8rem; color:var(--muted);
+  }
+  .meta img{width:22px;height:22px;border-radius:50%;flex-shrink:0}
+
+  /* ---------- Skeletons ---------- */
+  .sk{background:var(--surface-2); border-radius:var(--radius); animation:pulse 1.4s infinite}
+  .sk-thumb{aspect-ratio:16/9}
+  .sk-line{height:14px; margin-top:10px; border-radius:6px}
+  .sk-line.short{width:55%}
+  @keyframes pulse{0%,100%{opacity:.55}50%{opacity:.9}}
+
+  /* ---------- Empty / error ---------- */
+  .empty{
+    text-align:center; padding:70px 20px; color:var(--muted);
+    border:1px dashed #2c2c2c; border-radius:var(--radius);
+  }
+  .empty h2{color:var(--text); margin:0 0 8px; font-size:1.2rem}
+  .empty code{
+    background:#1c1c1c; padding:2px 6px; border-radius:5px;
+    color:#ff7a8a; font-size:.85rem;
+  }
+
+  /* ---------- Modal reproductor ---------- */
+  .player{
+    position:fixed; inset:0; z-index:50;
+    background:rgba(0,0,0,.88);
+    display:none; place-items:center; padding:24px;
+  }
+  .player.open{display:grid}
+  .player-box{
+    width:min(1100px,100%);
+    background:var(--surface); border-radius:14px; overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.6);
+    animation:pop .18s ease-out;
+  }
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .player-frame{aspect-ratio:16/9; background:#000; width:100%}
+  .player-frame iframe,.player-frame video{width:100%;height:100%;border:0;display:block}
+  .player-info{
+    display:flex; align-items:flex-start; gap:14px;
+    padding:16px 20px;
+  }
+  .player-info h2{margin:0 0 6px; font-size:1.05rem; line-height:1.35}
+  .player-info a{color:var(--muted); font-size:.82rem; text-decoration:none}
+  .player-info a:hover{color:var(--text); text-decoration:underline}
+  .player-close{
+    margin-left:auto; flex-shrink:0;
+    background:transparent; border:0; color:var(--muted);
+    font-size:1.6rem; cursor:pointer; line-height:1; padding:0 4px;
+  }
+  .player-close:hover{color:#fff}
+
+  /* ---------- Diálogo compartir ---------- */
+  dialog{
+    border:0; padding:0; border-radius:14px;
+    background:var(--surface); color:var(--text);
+    width:min(460px,92vw);
+    box-shadow:0 24px 60px rgba(0,0,0,.6);
+  }
+  dialog::backdrop{background:rgba(0,0,0,.7)}
+  dialog form{padding:24px; display:flex; flex-direction:column; gap:14px}
+  dialog h2{margin:0; font-size:1.15rem}
+  dialog p.hint{margin:0; font-size:.83rem; color:var(--muted); line-height:1.5}
+  dialog label{font-size:.83rem; color:var(--muted); display:block; margin-bottom:6px}
+  dialog input{
+    width:100%; padding:11px 14px;
+    border-radius:9px; border:1px solid #333;
+    background:#121212; color:var(--text);
+    font-size:.92rem; outline:none;
+  }
+  dialog input:focus{border-color:var(--accent)}
+  .dialog-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:4px}
+
+  /* ---------- Toast ---------- */
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translate(-50%,120%);
+    background:#2b2b2b; color:var(--text);
+    padding:13px 20px; border-radius:10px; font-size:.88rem;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    transition:transform .25s ease; z-index:100;
+    max-width:90vw; text-align:center;
+  }
+  .toast.show{transform:translate(-50%,0)}
+
+  @media (max-width:640px){
+    header{flex-wrap:wrap}
+    .search{order:3; max-width:none; width:100%; margin:0}
+    .logo{font-size:1rem}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="dot">▶</div>
+    Video<span>Hub</span>
+  </div>
+
+  <div class="search">
+    <input id="search" type="search" placeholder="Buscar videos..." autocomplete="off" />
+  </div>
+
+  <button class="btn btn-primary" id="shareBtn">+ Compartir</button>
+</header>
+
+<main>
+  <p class="status" id="status">Cargando videos…</p>
+  <div class="grid" id="grid"></div>
+</main>
+
+<!-- Reproductor -->
+<div class="player" id="player">
+  <div class="player-box">
+    <div class="player-frame" id="playerFrame"></div>
+    <div class="player-info">
+      <div>
+        <h2 id="playerTitle"></h2>
+        <a id="playerLink" href="#" target="_blank" rel="noopener">Ver original en GitHub →</a>
+      </div>
+      <button class="player-close" id="playerClose" aria-label="Cerrar">×</button>
+    </div>
+  </div>
+</div>
+
+<!-- Compartir -->
+<dialog id="shareDialog">
+  <form id="shareForm">
+    <h2>Compartir un video</h2>
+    <p class="hint">
+      Pega el enlace y se abrirá GitHub con el formulario ya rellenado.
+      Solo tienes que pulsar <b>Submit new issue</b>.
+    </p>
+    <div>
+      <label for="fTitle">Título</label>
+      <input id="fTitle" type="text" placeholder="Ej: Lo mejor de 2025" required maxlength="120" />
+    </div>
+    <div>
+      <label for="fUrl">Enlace del video</label>
+      <input id="fUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." required />
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn" id="cancelBtn">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Publicar en GitHub</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   1. CONFIGURACIÓN — ¡CAMBIA ESTO!
+   ========================================================= */
+const CONFIG = {
+  owner: 'puppysan',   // tu usuario u organización de GitHub
+  repo:  'videos',      // el repositorio donde viven los issues
+  label: 'video'         // etiqueta que marca los issues que son videos
+};
+
+/* =========================================================
+   2. Utilidades
+   ========================================================= */
+const $ = id => document.getElementById(id);
+
+const esc = str => String(str ?? '')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function timeAgo(iso){
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  const units = [
+    ['año', 31536000], ['mes', 2592000], ['semana', 604800],
+    ['día', 86400], ['hora', 3600], ['minuto', 60]
+  ];
+  for (const [name, secs] of units){
+    if (diff >= secs){
+      const n = Math.floor(diff / secs);
+      return `hace ${n} ${name}${n > 1 ? 's' : ''}`;
+    }
+  }
+  return 'hace un momento';
+}
+
+/* =========================================================
+   3. Detección de plataforma y datos del video
+   ========================================================= */
+function extractUrl(text){
+  if (!text) return null;
+  const m = String(text).match(/https?:\/\/[^\s<>()"'\]]+/);
+  return m ? m[0].replace(/[.,;]+$/, '') : null;
+}
+
+function parseVideo(rawUrl){
+  if (!rawUrl) return { type:'unknown' };
+
+  let u;
+  try { u = new URL(rawUrl); } catch { return { type:'unknown' }; }
+
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  const path = u.pathname;
+
+  // ---- YouTube ----
+  if (host === 'youtu.be'){
+    const id = path.slice(1).split('/')[0];
+    if (id) return yt(id);
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com'){
+    let id = u.searchParams.get('v');
+    if (!id){
+      const m = path.match(/^\/(?:embed|shorts|live|v)\/([^/?#]+)/);
+      if (m) id = m[1];
+    }
+    if (id) return yt(id);
+  }
+
+  // ---- Vimeo ----
+  if (host === 'vimeo.com' || host.endsWith('.vimeo.com')){
+    const m = path.match(/(\d{6,})/);
+    if (m) return {
+      type:'vimeo',
+      embed:`https://player.vimeo.com/video/${m[1]}`,
+      thumb:`https://vumbnail.com/${m[1]}.jpg`
+    };
+  }
+
+  // ---- Dailymotion ----
+  if (host === 'dai.ly' || host.endsWith('dailymotion.com')){
+    const m = host === 'dai.ly'
+      ? path.match(/^\/([^_/?#]+)/)
+      : path.match(/\/video\/([^_/?#]+)/);
+    if (m) return {
+      type:'dailymotion',
+      embed:`https://www.dailymotion.com/embed/video/${m[1]}`,
+      thumb:`https://www.dailymotion.com/thumbnail/video/${m[1]}`
+    };
+  }
+
+  // ---- Archivo de video directo ----
+  if (/\.(mp4|webm|ogv|ogg|mov|m4v)$/i.test(path)){
+    return { type:'file', embed:rawUrl, thumb:null };
+  }
+
+  // ---- Cualquier otro enlace ----
+  return { type:'link', embed:null, thumb:null, domain:host };
+
+  function yt(id){
+    return {
+      type:'youtube',
+      embed:`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
+      thumb:`https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+    };
+  }
+}
+
+const TYPE_LABEL = {
+  youtube:'YouTube', vimeo:'Vimeo', dailymotion:'Dailymotion',
+  file:'Video', link:'Enlace', unknown:'?'
+};
+
+/* =========================================================
+   4. Carga de datos desde la API de GitHub
+   ========================================================= */
+let VIDEOS = [];
+
+async function loadVideos(){
+  const grid = $('grid');
+  const status = $('status');
+
+  grid.innerHTML = Array.from({ length: 8 }).map(() => `
+    <div>
+      <div class="sk sk-thumb"></div>
+      <div class="sk sk-line"></div>
+      <div class="sk sk-line short"></div>
+    </div>`).join('');
+
+  const api = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/issues`
+            + `?state=all&per_page=100&sort=created&direction=desc`
+            + (CONFIG.label ? `&labels=${encodeURIComponent(CONFIG.label)}` : '');
+
+  try {
+    const res = await fetch(api, { headers: { Accept:'application/vnd.github+json' } });
+
+    if (res.status === 404){
+      throw new Error('No se encontró el repositorio. Revisa <code>owner</code> y <code>repo</code> en CONFIG.');
+    }
+    if (res.status === 403){
+      throw new Error('Límite de peticiones de GitHub alcanzado. Espera unos minutos o añade un token.');
+    }
+    if (!res.ok){
+      throw new Error('Error de GitHub: ' + res.status);
+    }
+
+    const issues = await res.json();
+
+    VIDEOS = issues
+      .filter(i => !i.pull_request)
+      .map(issue => {
+        const url = extractUrl(issue.body) || extractUrl(issue.title);
+        return {
+          title: issue.title,
+          url,
+          video: parseVideo(url),
+          author: issue.user.login,
+          avatar: issue.user.avatar_url,
+          date: issue.created_at,
+          comments: issue.comments,
+          issueUrl: issue.html_url
+        };
+      })
+      .filter(v => v.url);
+
+    render(VIDEOS);
+
+  } catch (err){
+    grid.innerHTML = '';
+    status.innerHTML = '';
+    grid.innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <h2>No se pudieron cargar los videos</h2>
+        <p>${err.message}</p>
+        <p style="font-size:.82rem">
+          Revisa la configuración en el bloque <code>CONFIG</code> al inicio del script.
+        </p>
+      </div>`;
+  }
+}
+
+/* =========================================================
+   5. Render
+   ========================================================= */
+function render(list){
+  const grid = $('grid');
+  const status = $('status');
+
+  if (!list.length){
+    grid.innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <h2>Aún no hay videos</h2>
+        <p>Pulsa <b>+ Compartir</b> y pega el primer enlace.</p>
+      </div>`;
+    status.textContent = '';
+    return;
+  }
+
+  status.innerHTML = `<b>${list.length}</b> video${list.length === 1 ? '' : 's'} en la comunidad`;
+
+  grid.innerHTML = list.map((v, i) => {
+    const t = v.video.thumb;
+    const thumbHTML = t
+      ? `<img src="${esc(t)}" alt="" loading="lazy"
+             onerror="this.outerHTML='<div class=\\'fallback\\'>🎬</div>'" />`
+      : `<div class="fallback">🎬</div>`;
+
+    return `
+      <button class="card" data-index="${i}">
+        <div class="thumb">
+          ${thumbHTML}
+          <span class="tag">${esc(TYPE_LABEL[v.video.type] || 'Video')}</span>
+          <span class="play">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+        </div>
+        <h3>${esc(v.title)}</h3>
+        <div class="meta">
+          <img src="${esc(v.avatar)}" alt="" loading="lazy" />
+          <span>${esc(v.author)}</span>
+          <span>·</span>
+          <span>${timeAgo(v.date)}</span>
+        </div>
+      </button>`;
+  }).join('');
+
+  grid.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => openPlayer(list[+card.dataset.index]));
+  });
+}
+
+/* =========================================================
+   6. Reproductor
+   ========================================================= */
+const player = $('player');
+const playerFrame = $('playerFrame');
+
+function openPlayer(v){
+  const { embed, type } = v.video;
+
+  if (!embed){
+    window.open(v.url, '_blank', 'noopener');
+    return;
+  }
+
+  playerFrame.innerHTML = type === 'file'
+    ? `<video src="${esc(embed)}" controls autoplay playsinline></video>`
+    : `<iframe src="${esc(embed)}" allow="accelerometer; autoplay; clipboard-write;
+         encrypted-media; gyroscope; picture-in-picture; web-share"
+         allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+
+  $('playerTitle').textContent = v.title;
+  $('playerLink').href = v.issueUrl;
+  player.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePlayer(){
+  player.classList.remove('open');
+  playerFrame.innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+$('playerClose').addEventListener('click', closePlayer);
+player.addEventListener('click', e => { if (e.target === player) closePlayer(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && player.classList.contains('open')) closePlayer();
+});
+
+/* =========================================================
+   7. Buscador
+   ========================================================= */
+$('search').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return render(VIDEOS);
+  render(VIDEOS.filter(v =>
+    v.title.toLowerCase().includes(q) || v.author.toLowerCase().includes(q)
+  ));
+});
+
+/* =========================================================
+   8. Compartir
+   ========================================================= */
+const dialog = $('shareDialog');
+const toast = $('toast');
+let toastTimer;
+
+function showToast(msg){
+  toast.innerHTML = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+$('shareBtn').addEventListener('click', () => dialog.showModal());
+$('cancelBtn').addEventListener('click', () => dialog.close());
+
+$('shareForm').addEventListener('submit', e => {
+  e.preventDefault();
+
+  const title = $('fTitle').value.trim();
+  const url = $('fUrl').value.trim();
+
+  try { new URL(url); }
+  catch { showToast('⚠️ El enlace no es válido'); return; }
+
+  const body = `**Video:** ${url}\n\n_Compartido desde VideoHub._`;
+
+  const issueUrl = `https://github.com/${CONFIG.owner}/${CONFIG.repo}/issues/new`
+    + `?title=${encodeURIComponent(title)}`
+    + `&body=${encodeURIComponent(body)}`
+    + (CONFIG.label ? `&labels=${encodeURIComponent(CONFIG.label)}` : '');
+
+  window.open(issueUrl, '_blank', 'noopener');
+  dialog.close();
+  e.target.reset();
+  showToast('✅ Se abrió GitHub. Pulsa <b>Submit new issue</b> para publicar.');
+});
+
+/* =========================================================
+   9. Arranque
+   ========================================================= */
+loadVideos();
+</script>
+</body>
+</html>
