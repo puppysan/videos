@@ -129,7 +129,7 @@ function loadCatalogFromHTML(){
     const rawUrl = node.textContent.trim();
     const parsed = parseVideoUrl(rawUrl);
     if (!parsed) {
-      console.warn('StreamHub: URL no reconocida →', rawUrl);
+      console.warn('Vidya: URL no reconocida →', rawUrl);
       return;
     }
 
@@ -338,7 +338,7 @@ function showHome(){
   state.current = null;
   $('#watchView').hidden = true;
   $('#homeView').hidden = false;
-  document.title = 'StreamHub — Catálogo de videos';
+  document.title = 'Mi catálogo de videos';
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
 }
 
@@ -351,7 +351,7 @@ function openVideo(id, pushHash = true){
 
   $('#homeView').hidden = true;
   $('#watchView').hidden = false;
-  document.title = `${v.title} · StreamHub`;
+  document.title = `${v.title} · Vidya`;
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
 
   if (pushHash) history.replaceState(null, '', '#v=' + encodeURIComponent(id));
@@ -512,7 +512,7 @@ window.addEventListener('hashchange', handleHash);
   else showHome();
 
   console.log(
-    `%cStreamHub%c ${CATALOG.length} videos cargados desde el HTML`,
+    `%cVidya%c ${CATALOG.length} videos cargados desde el HTML`,
     'background:linear-gradient(135deg,#5eead4,#818cf8);color:#0a0c12;' +
     'padding:3px 9px;border-radius:6px;font-weight:800',
     'color:#8b93ab'
